@@ -1,0 +1,6 @@
+# one target per line: IPv4, IPv6 or hostname
+8.8.8.8
+1.1.1.1
+2001:4860:4860::8888
+example.com
+duration=60s, interval=1s
