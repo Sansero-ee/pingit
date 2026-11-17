@@ -195,7 +195,7 @@ func (p *pinger) run(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 	ip := p.target.IP
-	conn, _, err := newConn(ip)
+	conn, privileged, err := newConn(ip)
 	if err != nil {
 		p.log.Write(failRecord(name, ip.String(), 0, "icmp socket: "+err.Error()))
 		return
@@ -209,6 +209,14 @@ func (p *pinger) run(ctx context.Context, wg *sync.WaitGroup) {
 		proto = icmpv6Proto
 		reqType = ipv6.ICMPTypeEchoRequest
 		replyType = ipv6.ICMPTypeEchoReply
+	}
+
+	// Non-privileged (SOCK_DGRAM) ICMP endpoints reject *net.IPAddr and
+	// only accept *net.UDPAddr destinations; raw-socket endpoints the
+	// reverse.
+	dst := net.Addr(&net.IPAddr{IP: ip})
+	if !privileged {
+		dst = &net.UDPAddr{IP: ip}
 	}
 
 	var token [8]byte
@@ -236,7 +244,7 @@ func (p *pinger) run(ctx context.Context, wg *sync.WaitGroup) {
 			p.log.Write(failRecord(name, ip.String(), seq, "marshal: "+err.Error()))
 			return
 		}
-		if _, err := conn.WriteTo(wb, &net.IPAddr{IP: ip}); err != nil {
+		if _, err := conn.WriteTo(wb, dst); err != nil {
 			p.log.Write(failRecord(name, ip.String(), seq, "send: "+err.Error()))
 			return
 		}
